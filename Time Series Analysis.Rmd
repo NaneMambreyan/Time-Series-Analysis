@@ -1,0 +1,1016 @@
+---
+# title: "Time Series Analysis"
+# author: "Nane Mambreyan"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+\begin{titlepage}
+    \centering
+    \vspace*{\fill}
+    
+    \Huge
+    \textbf{Time Series Analysis}
+    
+    \vspace{1.5cm}
+    
+    \Large
+    \textbf{Nane Mambreyan}
+    
+    \vfill
+    
+    \Large
+    American University of Armenia\\
+    Yerevan, Armenia\\
+    November 15, 2023
+    
+    \vspace*{\fill}
+\end{titlepage}
+
+
+
+```{r, echo=FALSE}
+    knitr::opts_chunk$set(echo = FALSE)
+    knitr::opts_chunk$set(message = FALSE)
+    knitr::opts_chunk$set(include = TRUE)
+    knitr::opts_chunk$set(warning = FALSE)
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(tidyr)
+library(ggridges)
+library(gridExtra)
+library(ggpubr)
+library(reshape2)
+library(forecast)
+library(maps)
+library(corrplot)
+library(forecast)
+library(zoo)
+library(grid)
+library(lubridate)  
+library(stringr)
+library(data.table)
+library(tm)
+library(wordcloud)
+library(RColorBrewer)
+library(ggforce)
+
+```
+
+
+```{r}
+df_wrapped_bitcoin <- read.csv("DataCrypto/coin_WrappedBitcoin.csv") # 22 from the list
+df_XRP <- read.csv("DataCrypto/coin_XRP.csv") # 23 from the list
+df_Etherium <- read.csv("DataCrypto/coin_Ethereum.csv") # chosen randomly since there is no 24
+
+eth_data <- df_Etherium
+wbtc_data <- df_wrapped_bitcoin
+xrp_data <- df_XRP
+
+eth_data$Date <- as.Date(eth_data$Date, format = "%Y-%m-%d")
+wbtc_data$Date <- as.Date(wbtc_data$Date, format = "%Y-%m-%d")
+xrp_data$Date <- as.Date(xrp_data$Date, format = "%Y-%m-%d")
+
+eth_data$Currency <- "Ethereum"
+wbtc_data$Currency <- "WrappedBitcoin"
+xrp_data$Currency <- "XRP"
+
+combined_data <- rbind(eth_data, wbtc_data, xrp_data)
+```
+
+\begin{center}
+\huge \textbf{Cryptocurrency Dataset}
+\end{center}
+
+
+\LARGE \textbf{Comparing time series}
+
+\normalsize
+
+```{r, fig.height=6}
+
+plot1 <- ggplot(combined_data, aes(x = Date, y = High, group = Name, color = Name)) +
+  geom_line() +
+  labs(title = "Comparative High Prices Over Time", x = "", y = "High Price") +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1") +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+
+
+plot2 <-ggplot(combined_data, aes(x = Date, y = Low, group = Name, color = Name)) +
+  geom_line() +
+  labs(title = "Comparative Low Prices Over Time", x = "", y = "Low Price") +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1")+
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+
+
+plot3 <-ggplot(combined_data, aes(x = Date, y = Open, group = Name, color = Name)) +
+  geom_line() +
+  labs(title = "Comparative Open Prices Over Time", x = "", y = "Open Price") +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1")+
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+
+
+plot4 <-ggplot(combined_data, aes(x = Date, y = Close, group = Name, color = Name)) +
+  geom_line() +
+  labs(title = "Comparative Close Prices Over Time", x = "", y = "Close Price") +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1")+
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+
+
+plot5 <-ggplot(combined_data, aes(x = Date, y = Volume, group = Name, color = Name)) +
+  geom_line() +
+  labs(title = "Comparative Volume Prices Over Time", x = "", y = "Volume Price") +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1")+
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+
+
+plot6 <-ggplot(combined_data, aes(x = Date, y = Marketcap, group = Name, color = Name)) +
+  geom_line() +
+  labs(title = "Comparative Marketcap Prices Over Time", x = "", y = "Marketcap Price") +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1")+
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+
+
+combined_long <- combined_data %>% 
+  gather(key = "Metric", value = "Value", High:Marketcap)
+
+ggplot(combined_long, aes(x = Date, y = Value, group = Name, color = Name)) +
+  geom_line() +
+  facet_wrap(~ Metric, scales = 'free_y', ncol = 1) +
+  labs(title = "Comparative Cryptocurrency Metrics Over Time", x = "Date", y = "Value") +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1")+
+  theme(
+    legend.title = element_blank()
+  )
+```
+
+Since the price scales are significantly different for Wrapped Bitcoin and other two (XRP, Ethereum), so it is difficult to make detailed comparisons based on values since the variation for XRP is not clear due to scaling of others.
+So further inspection is needed. 
+For all plots we notice spikes for 2021, which are more visible for Wrapped Bitcoin. We can also notice relatively lower spikes for period between 2019 and 2020. This period differd only for Marketcap prices which had 1st peak in 2018.
+ 
+High Prices Over Time:
+The peaks in the high prices for Ethereum and Wrapped Bitcoin reflect moments of intense buying pressure and market optimism especially in 2021. We can also notice a peak for Wrapped Bitcoin high prices between 2019 and 2020.
+Sharp spikes might represent periods of speculative trading or reactions to positive news or developments within the cryptocurrency space.
+
+Low Prices Over Time:
+The lows for Ethereum and Wrapped Bitcoin gradually increase, indicating a rising base price over time.
+Occasional dips could be the result of market corrections, negative news, or broader economic downturns affecting risk assets like cryptocurrencies for both.
+
+Close Prices Over Time:
+Ethereum and Wrapped Bitcoin exhibit a strong upward trend in closing prices. This suggests a sustained positive investor sentiment towards these assets.
+The Wrapped Bitcoin's closing prices appear to be closely aligned with Bitcoin's market movements, given its nature as a representation of Bitcoin on the Ethereum blockchain.
+XRP's closing price remains relatively stable and lower in comparison, which could indicate a more cautious approach from investors or a different market dynamic affecting its price.
+
+Open Prices Over Time:
+The opening prices follow a trend similar to the closing prices, with a general upward trajectory for Ethereum and Wrapped Bitcoin.
+Consistency between open and close prices might indicate a stable market without sudden changes due to overnight news or events.
+
+Volume Over Time:
+Volume spikes are often associated with price movements, indicating periods of high trading activity which can be driven by news releases, product launches, or  various macroeconomic factors. Sustained high volume in conjunction with price increases could validate the trend as being backed by strong investor interest or other factors.
+In this plot the volume increases gradually for all 3 types, having highest increase for Ethereum, then XRP, then Wrapped Bitcoin.
+
+Marketcap Prices Over Time:
+This chart mirrors the individual asset price movements over time.
+We notice sharp increases in market cap, which could be attributed to both price appreciation and the minting of new tokens or coins.
+
+By every measure, Ethereum and Wrapped Bitcoin show robust performance. This could be attributed to the expanding decentralised application ecosystem, growing institutional interest, and the overall positive market conditions surrounding cryptocurrencies over the previous years.
+When compared to Ethereum and Wrapped Bitcoin, XRP has performed less well in terms of price and market cap growth. This could be a sign of particular difficulties or a lag in adoption.
+The data indicates that although the cryptocurrency market is expanding, there are times when it is very volatile. Many things, such as developments in technology, regulatory news, market , and changes in investor sentiment, can have an impact on volatility.
+
+\newpage
+\LARGE \textbf{Seasonal analysis}
+\normalsize
+
+Since we are dealing with seasonal analysis, it is reasonable to look at the cost for the end of the season. That characteristic is represented in Close column of our dataset. So we begin with extracting the Dates and closing prices of the cryptocurrency. To be able to create seasonal plots we need time series object, where our seasons are the years. To create a visually interpretable data, we take the frequency to be 12, refering to monthly data.
+
+## Wrapped Bitcoin
+```{r}
+WrappedBitcoin <- read.csv("DataCrypto/coin_WrappedBitcoin.csv") # 22 from the list
+
+WrappedBitcoin$Date <- as.Date(WrappedBitcoin$Date, format = "%Y-%m-%d")
+
+crypto_ts <- WrappedBitcoin %>%
+  select(Date, Close) %>%
+  arrange(Date) %>%
+  as.data.frame()
+
+seasonal <- ts(crypto_ts$Close, start = c(year(min(crypto_ts$Date)), month(min(crypto_ts$Date))), 
+        end = c(year(max(crypto_ts$Date)), month(max(crypto_ts$Date))), 
+        frequency = 12)
+```
+
+```{r, fig.height=3}
+autoplot(seasonal) + 
+  labs(y = 'Closing Price($)', x = '', title = 'Closing Price of Wrapped Bitcoin from 2019 to 2021') +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+
+This plot shows the overall trend of the price for this cryptocurrency over years(seasons). We see that in the beginning of the second half of 2019, the price is at its minimal, and it is at its maximal towards the end of 2020. We have drastic decrease of the price in the beginning of 2021. We cannot say anything for sure about cycles and seasonality yet, but the overall trend from 2019 to 2021 is increasing with some periods of drastic decreases.
+
+
+
+```{r, fig.height=3}
+ggseasonplot(seasonal, year.labels = T) +
+  labs(y = 'Closing Price($)', title = 'Closing Price of Wrapped Bitcoin by month (2019-2021)', x='') +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+With this plot we already see some seasonality. For 2019 and 2020, we have decrease from Jul to Aug and increase from Aug to Sep, so we can expect something similar for 2021. From 2019 to the end of 2020 the general trend is increasing, especially in 2020, but then right at the beginning of 2021 the price decreases abruptly(the blue line starts with lower value of closing price than the price at which 2020 ends).
+
+
+```{r, fig.height=3}
+ggsubseriesplot(seasonal) + 
+  labs(y = 'Closing Price($)', title = 'Closing Price Patterns of Wrapped Bitcoin By Months', x='') +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+This shows that for the considered years, from Jan to March we have generally increasing trend, then slight decrease till May. After that we see some increasing tendency for two months. As already mentioned above, at the beginning of Aug we see abrupt decrease. After that the price stays more or less stable on max values.
+The slices are more or less similar, hence we can expect to have some seasonality.
+
+
+```{r, fig.height=3}
+decomposed_ts <- stl(seasonal, s.window = 'periodic', t.window = 13)
+autoplot(decomposed_ts) +
+  labs(y = 'Closing Price($)', title = 'Decomposition of Closing Price of Wrapped Bitcoin', x='') +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+- Trend: We see that overall the price increased within mentioned period
+
+- Seasonality: We see fixed time periods with similar 'visual shapes' on fixed periods within time. This is clear pattern of seasonality.
+
+- Cycles: No cycles on the trend component representing combined trend and cycle patters.
+
+- Remainder: It is random, hence our seasonal and trend analysis can be considered reliable.
+
+
+\newpage
+## XRP
+Extracting the same information as described above for WrappedBitcoin.
+```{r}
+XRP <- read.csv("DataCrypto/coin_XRP.csv") # 23 from the list
+
+XRP$Date <- as.Date(XRP$Date, format = "%Y-%m-%d")
+
+
+crypto_ts <- XRP %>%
+  select(Date, Close) %>%
+  arrange(Date) %>%
+  as.data.frame()
+
+seasonal <- ts(crypto_ts$Close, start = c(year(min(crypto_ts$Date)), month(min(crypto_ts$Date))), 
+        end = c(year(max(crypto_ts$Date)), month(max(crypto_ts$Date))), 
+        frequency = 12)
+```
+
+
+```{r, fig.height=3}
+autoplot(seasonal) + 
+  labs(y = 'Closing Price($)', x = '', title = 'Closing Price of XRP from 2013 to 2021') +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+Again there are no specific patterns that can be seen on this plot which shows overall price fluctuations from 2014 to 2020. We see decrease in 2014  and drastical increase in 2017 as well as 2018.
+
+
+
+```{r, fig.height=3}
+ggseasonplot(seasonal) +
+  labs(y = 'Closing Price($)', title = 'Closing Price of XRP by month (2013-2021)', x='') +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+We have 9 years and the picture doesn't have vivid pattern for the depicted lines, hence there is no apparent seasonality for these years and we need further analysis.
+
+```{r, fig.height=3}
+ggsubseriesplot(seasonal) + 
+  labs(y = 'Closing Price($)', title = 'Closing Price Patterns of XRP By Months', x='') +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+Each vertical "slice" of the plot corresponds to a specific month, and the lines within each slice represent the seasonal component for different years. The consistent presence of peaks within each monthly slice indicates a repeatable seasonal pattern across years.
+
+The blue horizontal line across the plot represent the mean of the seasonal component. A relatively flat line suggests that the average seasonal effect has not changed much over the years, indicating stability in the seasonal pattern.
+
+```{r, fig.height=3}
+decomposed_ts <- stl(seasonal, s.window = 'periodic', t.window = 13)
+autoplot(decomposed_ts) +
+  labs(y = 'Closing Price($)', title = 'Decomposition of Closing Price for XRP', x='') +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+- Trend: There is no vivid increasing or decreasing trend but we can see that for example in 2018 the price was on its peak.
+
+- Seasonality: We see fixed time periods with similar 'visual shapes' on fixed periods within time. This is clear pattern of seasonality.
+
+- Cycles: No cycles on the trend component representing combined trend and cycle patters.
+
+- Remainder: It is random, hence our seasonal and trend analysis can be considered reliable.
+
+
+\newpage
+## Ethereum
+```{r}
+Ethereum <- read.csv("DataCrypto/coin_Ethereum.csv") # chosen randomly since there is no 24
+
+Ethereum$Date <- as.Date(Ethereum$Date, format = "%Y-%m-%d")
+
+
+crypto_ts <- Ethereum %>%
+  select(Date, Close) %>%
+  arrange(Date) %>%
+  as.data.frame()
+
+seasonal <- ts(crypto_ts$Close, start = c(year(min(crypto_ts$Date)), month(min(crypto_ts$Date))), 
+        end = c(year(max(crypto_ts$Date)), month(max(crypto_ts$Date))), 
+        frequency = 12)
+```
+
+```{r, fig.height=3}
+autoplot(seasonal) + 
+  labs(y = 'Closing Price($)', x = '', title = 'Closing Price of Ethereum from 2015 to 2021') +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+
+The plot shows emphasized decreasing trend. We generally observe stable decrease with some periods of abrupt decreases. For more explicit patterns we need further analysis:
+
+```{r, fig.height=3}
+ggseasonplot(seasonal) +
+  labs(y = 'Closing Price($)', title = 'Closing Price of Ethereum by month (2015-2021)', x='') +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+This plot also contributes to the claim of decreasing trend, since we have lowest prices for the last year represented with pink line. Because we have data for multiple years, further patterns are not visible on this plot, so we can proceed to other visualizations.
+
+```{r, fig.height=3}
+ggsubseriesplot(seasonal) + 
+  labs(y = 'Closing Price($)', title = 'Closing Price Patterns of XRP By Months', x='') +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+
+For this plot we already see some seasonality.
+
+The lines within each slice represent the seasonal component for different years. The consistent presence of peaks within each monthly slice indicates a repeatable seasonal pattern across years. This is especially true for periods from Jan to April and Jun to Dec.
+
+The blue horizontal line across the plot representing the mean of the seasonal component also show the seasonal pattern since we see similar increasing and decreasing pattern in them.
+
+```{r, fig.height=3}
+decomposed_ts <- stl(seasonal, s.window = 'periodic', t.window = 12)
+autoplot(decomposed_ts) +
+  labs(y = 'Closing Price($)', title = 'Decomposition of Closing Price of XRP', x='') +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+
+- Trend: There is decreasing trend.
+
+- Seasonality: We see fixed time periods with similar 'visual shapes' on fixed periods within time. This is clear pattern of seasonality.
+
+- Cycles: We see cycles because we have repeating fluctuations for almost every 2 years in trend component.
+
+- Remainder: It is random, hence our seasonal and trend analysis can be considered reliable.
+
+
+
+\newpage
+\LARGE \textbf{Out-of-graph events}
+\normalsize
+
+XRP experienced a significant peak in early 2018 due to a surge in cryptocurrency market interest, followed by a sharp decline as market enthusiasm waned and regulatory scrutiny increased.
+
+```{r}
+XRP <- read.csv("DataCrypto/coin_XRP.csv") # 23 from the list
+
+XRP$Date <- as.Date(XRP$Date, format = "%Y-%m-%d")
+
+
+crypto_ts <- XRP %>%
+  select(Date, Close) %>%
+  arrange(Date) %>%
+  as.data.frame()
+
+seasonal <- ts(crypto_ts$Close, start = c(year(min(crypto_ts$Date)), month(min(crypto_ts$Date))), 
+        end = c(year(max(crypto_ts$Date)), month(max(crypto_ts$Date))), 
+        frequency = 12)
+
+autoplot(seasonal) + 
+  labs(y = 'Closing Price($)', x = '', title = 'Closing Price of XRP from 2013 to 2021') +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )+
+  geom_text(aes(x = 2018, y = 0.0150), label = "Event 1", color = 'black')+
+  geom_text(aes(x = 2018.4, y = 0.0075), label = "Event 2", color = 'black')
+```
+
+
+Event 1 - The end of 2017 and the beginning of 2018 saw a massive surge in the prices of many cryptocurrencies, including XRP. This was partly due to a general bull market in cryptocurrencies, driven by speculative trading and a surge in interest from retail investors.
+Ripple, the company behind XRP, announced a series of partnerships with financial institutions for using its payment technology, which increased optimism about XRP's adoption for cross-border payments.  The prices of cryptocurrencies like Bitcoin soared to all-time highs, many investors jumped into the market out of fear of missing out on potential gains. This led to increased buying pressure on cryptocurrencies, including XRP. The media extensively covered the dramatic rises in cryptocurrency values, which attracted more attention to the space and encouraged new investors to enter the market.
+
+Event 2 - For specific reasons such as regulatory concerns, market sentiment shifts, or technological developments. The decline in XRP's value was consistent with the overall market trend, where many cryptocurrencies saw significant reductions in their value after the speculative bubble of late 2017 and early 2018 burst.
+
+
+\newpage
+Ethereum's price saw a notable rise in 2016, fueled by technological milestones and the growth of its platform, despite facing volatility from various events.
+
+```{r}
+Ethereum <- read.csv("DataCrypto/coin_Ethereum.csv") # chosen randomly since there is no 24
+
+Ethereum$Date <- as.Date(Ethereum$Date, format = "%Y-%m-%d")
+
+
+crypto_ts <- Ethereum %>%
+  select(Date, Close) %>%
+  arrange(Date) %>%
+  as.data.frame()
+
+seasonal <- ts(crypto_ts$Close, start = c(year(min(crypto_ts$Date)), month(min(crypto_ts$Date))), 
+        end = c(year(max(crypto_ts$Date)), month(max(crypto_ts$Date))), 
+        frequency = 12)
+
+autoplot(seasonal) + 
+  labs(y = 'Closing Price($)', x = '', title = 'Closing Price of Ethereum from 2015 to 2021') +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )+
+  geom_text(aes(x = 2016.05, y = 1.9), label = "Event 1", color = 'black')+
+  geom_text(aes(x = 2019.85, y = 0.55), label = "Event 2", color = 'black')
+
+```
+Event 1 - In March, Ethereum released Homestead, the first production version of its software, which was anticipated to provide stability and legitimacy, opening doors for mainstream developers to create decentralized applications on the Ethereum blockchain.
+Throughout 2016, Ethereum underwent several hard forks to address security issues and improve the network, which demonstrated its flexibility but also raised concerns about its stability as a long-term platform.
+
+Event 2 - Market cycles after a period of rapid growth, a common  correction or a sharp decline is noticed as early investors take profits and the market reassesses the value of the asset.
+Concerns about bans or stringent regulations in major markets like the United States, China, or South Korea could impact Ethereum prices.
+The rise of other blockchain platforms that compete with Ethereum for developers and user attention impacted negatively.
+
+\newpage
+Wrapped Bitcoin's value generally mirrored Bitcoin's dramatic fluctuations, with a sharp drop before January 2021 after a period of intense growth, influenced by profit-taking and a temporary strengthening of the US dollar.
+
+```{r}
+WrappedBitcoin <- read.csv("DataCrypto/coin_WrappedBitcoin.csv") # 22 from the list
+
+WrappedBitcoin$Date <- as.Date(WrappedBitcoin$Date, format = "%Y-%m-%d")
+
+crypto_ts <- WrappedBitcoin %>%
+  select(Date, Close) %>%
+  arrange(Date) %>%
+  as.data.frame()
+
+seasonal <- ts(crypto_ts$Close, start = c(year(min(crypto_ts$Date)), month(min(crypto_ts$Date))), 
+        end = c(year(max(crypto_ts$Date)), month(max(crypto_ts$Date))), 
+        frequency = 12)
+
+autoplot(seasonal) + 
+  labs(y = 'Closing Price($)', x = '', title = 'Closing Price of Wrapped Bitcoin from 2019 to 2021') +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )+
+  geom_text(aes(x = 2020.93, y = 4200), label = "Event 1", color = 'black')+
+  geom_text(aes(x = 2021, y = 3640), label = "Event 2", color = 'black')
+
+```
+Event 1 - Amidst the economic uncertainty due to the COVID-19 pandemic, there was a significant amount of money printing by central banks around the world, particularly in the US. Investors started to look at Bitcoin as a hedge against potential currency debasement and inflation due to these stimulus measures.
+ 2020 saw increased interest from institutional investors in cryptocurrencies. Traditional finance players like JPMorgan Chase, BlackRock, and others began buying Bitcoin and producing bullish research reports on it. This trend also led to an increased interest in Bitcoin derivatives like Wrapped Bitcoin.
+Wrapped Bitcoin, as a tokenized version of Bitcoin on the Ethereum network, benefits from the broader trends in the cryptocurrency market, including increased institutional investment and adoption as a hedge against macroeconomic uncertainty.
+
+Event 2 - Wrapped Bitcoin follows due to its nature as a Bitcoin-backed asset on the Ethereum blockchain, reached an all-time high in early January 2021 but then experienced a significant sell-off. This price correction resulted in a loss of 26% of its value, which had a cascading effect on the entire cryptocurrency market, including Wrapped Bitcoin.
+The rally before this sell-off was driven by the entry of big institutional investors into the market, endorsements from Wall Street figures, and companies like PayPal enabling Bitcoin transactions for its users.
+
+
+
+\newpage
+\LARGE \textbf{Further analysis of the data set}
+\normalsize
+
+```{r}
+df_wrapped_bitcoin$Date <- as.Date(df_wrapped_bitcoin$Date, format = '%Y-%m-%d')
+df_XRP$Date <- as.Date(df_XRP$Date, format = '%Y-%m-%d')
+df_Etherium$Date <- as.Date(df_Etherium$Date, format = '%Y-%m-%d')
+```
+
+To analyze the data further, data is compared to take the intersection time period.
+
+```{r}
+cat("----------------------------------------\n")
+cat("Wrapped Bitcoin - WBTC:\n")
+summary(df_wrapped_bitcoin$Date)
+cat("----------------------------------------\n")
+cat("XRP:\n")
+summary(df_XRP$Date)
+cat("----------------------------------------\n")
+cat("Etherium:\n")
+summary(df_Etherium$Date)
+cat("----------------------------------------")
+
+df_wbtc_m <- df_wrapped_bitcoin %>% mutate(Percent_Change = (Open/lag(Open) - 1) * 100)
+df_wbtc_m <- df_wbtc_m %>% filter(between(Date, as.Date('2019-02-01'), as.Date('2021-07-06'))) 
+
+df_xrp_m <- df_XRP %>% mutate(Percent_Change = (Open/lag(Open) - 1) * 100)
+df_xrp_m <- df_xrp_m %>% filter(between(Date, as.Date('2019-02-01'), as.Date('2021-07-06'))) 
+
+df_eth_m <- df_Etherium %>% mutate(Percent_Change = (Open/lag(Open) - 1) * 100)
+df_eth_m <- df_eth_m %>% filter(between(Date, as.Date('2019-02-01'), as.Date('2021-07-06'))) 
+
+df_all <- rbind(df_wbtc_m, df_xrp_m, df_eth_m)
+
+df_all <- df_all %>% filter(between(Date, as.Date('2019-02-01'), as.Date('2021-07-06'))) 
+```
+
+From the summary, the time slot which is common for all currencies is starting from 2019-02-01 up to the last entry of the data set, which is on 2021-07-06.
+
+The points of interest in this case are the changes that happen to the currency. The more are the fluctuations of the selected currency, the more unstable it can be considered. These kind of pattern can be resulted from economic news releases, geopolitical events or unexpected developments.
+
+The percent change of opening prices per day can be calculated. The graph is presented below.
+
+```{r, fig.height=3}
+ggplot(df_all, aes(x=Date, y=Percent_Change, group=Name)) +
+  geom_line(aes(color=Name),alpha=.5, linewidth = 0.7)+ 
+  theme_minimal()+ 
+  labs(title = "Daily percent change",
+      y = "Percent change",
+      x = "")+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+
+```
+
+This graph contains too much information and it is not easy to compare the currencies to each other.
+
+```{r}
+ggplot(df_all, aes(x = Percent_Change)) +         
+  geom_density(position = "identity", alpha = 0.6, aes(colour = Name), linewidth = 0.75)+ 
+  scale_x_continuous(limit = c(-25, 25))+
+  labs(title = "Daily percent change density plot",
+      x = "Percent change",
+      y = "Density")+
+  theme_minimal()+ 
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+The above graph shows the density plot for the daily change of the opening prices per day. The plot for the wrapped bitcoin is sharper, and has lower variance. All 3 currencies have similar shapes, hence there is nothing that can be told using the density plot.
+
+```{r results='asis'}
+cat("Standard deviation of Etherium percent change: ")
+cat(sd(df_eth_m$Percent_Change))
+cat("\n")
+
+cat("\nStandard deviation of Wrapped bitcoin percent change: ")
+cat(sd(df_wbtc_m$Percent_Change))
+cat("\n")
+
+cat("\nStandard deviation of XRP percent change: ")
+cat(sd(df_xrp_m$Percent_Change))
+
+```
+
+Standard deviation values are similar, but XRP has the largest among the given three. Large deviation for the percent change implies that the currency is unstable and can fluctuate more from one day to another.
+
+It might be interesting to see if there is a connection between the given three cryptocurrencies. For that correlation matrix is constructed. 
+
+
+```{r}
+wide_all <- df_all %>% select(Date,Name,Percent_Change) %>% spread(., key = Name, value = Percent_Change)
+
+cor_matrix <- cor(wide_all[, c('Ethereum','Wrapped Bitcoin','XRP')])
+
+print(cor_matrix)
+```
+
+Additionally, covariance scatter plot matrix can be constructed to better visualize the values from the covariance matrix.
+
+```{r}
+plot(wide_all[,c('Ethereum','Wrapped Bitcoin','XRP')], main = "Scatter plot matrix for the selected cryptocurrencies")
+
+```
+
+By looking at the given data, we can assume there is no correlation between XRP and the other two currencies, however there is a significant correlation between Etherium and Wrapped Bitcoin. Since wrapped currencies are closely related to their non-wrapped version, relationship between Etherium and Bitcoin isn't surpsrising, but we showed it once again using the correlation. The same can be seen from the scatter plot, as the covariance if Wrapped Bitcoin and XRP are closer to a circle, while Ethereum and Wrapped Bitcoin have a shape closer to an ellipsoid. This shows the relationship between those two currencies one again.
+
+\newpage
+\begin{center}
+\huge \textbf{Hotel dataset}
+\end{center}
+
+
+```{r}
+hotel_data <- read.csv("booking_reviews copy.csv") 
+
+hotel_data_sorted <- hotel_data %>%
+  group_by(hotel_name) %>%
+  summarize(occurrences = n()) %>%
+  arrange(desc(occurrences))
+
+selected_hotels <- hotel_data_sorted %>%
+  filter(row_number() %% 8 == 0)
+
+hotel_data_filtered <- hotel_data %>%
+  filter(hotel_name %in% selected_hotels$hotel_name)
+
+my_data <- hotel_data_filtered %>%
+  select(-images, -url, -hotel_url, -raw_review_text, -meta)
+
+hotel_data_filtered$reviewed_at <- as.Date(hotel_data_filtered$reviewed_at, format = '%d %B %Y')
+
+```
+
+
+\LARGE \textbf{Analysis over time}
+\normalsize
+
+```{r}
+hotel_data_filtered <- hotel_data_filtered %>%
+  mutate(month_year = format(reviewed_at, "%Y-%m"))
+
+average_ratings <- hotel_data_filtered %>%
+  group_by(month_year) %>%
+  summarise(avg_rating = mean(rating, na.rm = TRUE))
+
+pl1 <- ggplot(average_ratings, aes(x = as.Date(paste0(month_year, "-01")), y = avg_rating)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = 0, ymax = avg_rating), fill = "yellow", alpha = 0.2) +
+  labs(title = "Average Rating Over Months",
+       x = "",
+       y = "Average Rating") +
+  theme_minimal() +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "3 month")+
+  coord_cartesian(ylim = c(0, 10))+
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5),
+    plot.title = element_text(hjust = 0),
+    panel.grid.minor = element_blank(),
+    axis.text.x.bottom = element_blank() 
+  )
+
+customer_counts <- hotel_data_filtered %>%
+  group_by(month_year) %>%
+  summarise(customer_count = n_distinct(hotel_name))
+
+pl2 <- ggplot(customer_counts, aes(x = as.Date(paste0(month_year, "-01")), y = customer_count)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = 0, ymax = customer_count), fill = "yellow", alpha = 0.2) +
+  labs(title = "Number of Customers Per Month",
+       x = "",
+       y = "Number of Customers") +
+  theme_minimal() +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "3 month")+
+  coord_cartesian(ylim = c(0, 60))+
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5),
+    plot.title = element_text(hjust = 0),
+    panel.grid.minor = element_blank()
+  )
+
+# grid.arrange(pl1, pl2, ncol = 1)
+
+grid.arrange(pl1, pl2, ncol=1, top = textGrob('Analysis of average rating and overall customers over time', 
+                                    gp=gpar(fontsize=16)))
+```
+
+## Average Rating Over Months
+The plot shows how the average rating changed over time. Since the data entries are not periodic, it can't be treated as time series. However, data per month can be averaged and displayed. The time frame is around 2 years, starting from July 2018 and running up to July 2021. The average rating stays more or less same, around 8. The only visible change in average rating is around May 2020, where the rating decreased to be around 6.5.  
+
+## Number of Custromers Per Month
+To further analyze what happened over time, the number of customers can give an insight. The one regions that catches eye, is the decrease in the number of customers starting from March 2020 until June 2020. This might be caused by the COVID pandemic, when people didn't have the opportunity to travel a lot. The number of customers seems to go up around August, since people are going to holidays and booking hotels at that period of time. The highest peak is around October 2019, which doesn't have any specific reason, since there are no holidays during that time of the year. 
+In comparison with the previous graph, the average rating decreased around the same time when the number of customers decreased. This could have affected the average rating much more, since with less customers, each customer's rating has bigger influence on the average. 
+
+\newpage
+\LARGE \textbf{Ratings analysis for 5 hotels that have been reviewed the most}
+\normalsize
+\par\bigskip
+\par\bigskip
+
+Ratings provide a broad understanding of the overall user experience across hotels, so
+we begin by selecting only the top five hotels that have received the most reviews. This approach aims to enhance the reliability of our findings by minimizing subjectivity, specifically avoiding selection bias.
+\par\bigskip
+
+
+```{r, message=TRUE, warning=FALSE}
+most_freq_reviewd_5_hotels <- my_data %>%
+  group_by(hotel_name) %>%
+  summarise(Count = n()) %>%
+  arrange(desc(Count)) %>%
+  top_n(5, wt = Count) %>%
+  pull(hotel_name)
+  
+data_most <- my_data %>%
+  filter(hotel_name %in% most_freq_reviewd_5_hotels)
+
+
+p1 <- ggplot(data_most, aes(y = hotel_name, x = rating)) +
+  geom_boxplot() +
+  labs(title = "Box plot: Distribution of Ratings") +
+  stat_summary(fun = "mean", geom = "point", shape = 10, size = 3, color = "red") +
+  scale_y_discrete(labels = c("Aparthotel Adagio Access Bruxelles Europe Aparthotel" =
+                                "Aparthotel Adagio\nAccess Bruxelles\nEurope Aparthotel",
+                   "Novotel Brussels City Centre" = "Novotel Brussels\nCity Centre",
+                   "ibis budget Antwerpen Port" = "ibis budget\nAntwerpen Port",
+                   "Aris Grand Place Hotel" = "Aris Grand\nPlace Hotel" )) +
+  scale_x_continuous(breaks = seq(0, 10)) +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 10, face = "bold"), 
+    axis.title.y = element_blank(), 
+    axis.title.x = element_blank(),
+    axis.text.x = element_text(size = 6),  
+    axis.text.y = element_text(size = 6))
+
+
+p2 <- ggplot(data_most, aes(y = hotel_name, x = rating)) +
+  geom_violin() +
+  labs(title = "Violin plot: Distribution of Ratings",
+       x = "Rating") +
+  scale_y_discrete(labels = c("Aparthotel Adagio Access Bruxelles Europe Aparthotel" =
+                                "Aparthotel Adagio\nAccess Bruxelles\nEurope Aparthotel",
+                   "Novotel Brussels City Centre" = "Novotel Brussels\nCity Centre",
+                   "ibis budget Antwerpen Port" = "ibis budget\nAntwerpen Port",
+                   "Aris Grand Place Hotel" = "Aris Grand\nPlace Hotel" )) +
+  scale_x_continuous(breaks = seq(0, 10)) +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 10, face = "bold"), 
+    axis.title.y = element_blank(), 
+    axis.title.x = element_text(size = 8),
+    axis.text.x = element_text(size = 6),  
+    axis.text.y = element_text(size = 6))
+
+
+grid.arrange(p1, p2, top = textGrob('Ratings analysis for 5 most frequently reviewed hotels', 
+                                    gp=gpar(fontsize=18)))
+```
+
+
+\par\bigskip
+The red sign on each boxplot shows the mean of the distribution of average ratings for each hotel
+\par\bigskip
+
+
+- For Novotel Brussels City Centre the mean(red circle) is quite smaller than the median(Q2 on the boxplot) meaning that there are relatively few instances with extremely low ratings, pulling the mean downwards. This claim is supported with outliers with low ratings. The long left whisker suggests that there is a notable spread of ratings towards the lower end. Even though the majority of ratings might be high, the presence of the long left whisker implies that there are instances with significantly lower ratings, contributing to the negatively skewed distribution. The box spanning from 7.8 to 10 indicates that the central 50% of ratings is concentrated in this range. This suggests that the majority of ratings fall within a relatively high range, emphasizing the overall positive sentiment of most reviewers. The symmetry in the central 50% of the data suggests that, despite the presence of outliers and a negatively skewed distribution, the majority of ratings within this range are relatively consistent. It could imply that, for the majority of experiences, reviewers tend to provide ratings within high range. Moreover, according to our data 50% of reviewers were from 0 to 9 while the other 50% is fully for 9 to 10.
+
+\par\bigskip
+
+- For ibis budget Antwerpen Port a mean that is almost equal to the median, which suggests a relatively balanced distribution. The data does not show a strong skewness as the above one, which is why we have whiskers on both sides. Left whisker being longer means that we still have slightly left skewed distribution, with some low ratings. In this case he box spans from 6.5 to 8.8. It indicates that the central 50% of the data is concentrated in this range. This suggests that most ratings fall within this intermediate range. So the previous hotel had better performance.
+
+\par\bigskip
+
+- For Danaset Hotel the box has larger range, meaning greater variance of central 50% of the ratings. In this case we see slightly left distributed data according to the arrangement of mean, median and whiskers.
+Central 50% ratings range is about [7, 9.6].
+
+\par\bigskip
+
+- Aris Grand Place hotel has the most consistent ratings since the outliers are not as extreme as in other cases, it has left skewed distribution, with 50% central ratings ranging from 7.8 to 9.6.
+
+\par\bigskip
+
+- Finally, Aparthotel Adagio Access Bruxelles Europe Aparthotel has again large variability of ratings with some extremely low ratings but the overall picture is the same(left skewed). A much larger left part of the box indicates that there is more variability, or a larger spread, in the lower ratings. This suggests that there is more diversity in lower customer satisfaction scores.
+
+
+\par\bigskip
+In order to provide a more user-friendly representation of the analyzed pattern, we use violin plots for each hotel. Violin plots of hotel ratings show the mirrored density, offering a clearer depiction of the spread and concentration of ratings visually, rather than through deep analysis. The  wider section of violin plot indicates higher data density, meaning more data points fall within that range.
+
+
+\par\bigskip
+Using boxplots we can certainly say that hotel 1, 4 and 5 perform quite good, but we cannot be sure which one is better. Violin plot clearly shows that the first hotel has had the most occurrence "10" ratings and the pattern is quite stable(density higher towards higher ratings). We clearly see the skewedness, too.
+
+\newpage
+\LARGE \textbf{Identifying rating distribution across nationalities}
+\normalsize
+
+One of the reasons for analyzing this type of data can be to identify target group of these hotels.
+For simplicity, we take most popular hotels of our data(most popular refers to the number of reviews that the hotel got). We set the popularity threshold to be 80, i.e. any hotel that got at least 80 reviews should have something worth exploring.
+
+```{r, message=TRUE, warning=FALSE}
+freq_reviewd_hotels <- my_data %>%
+  group_by(hotel_name) %>%
+  summarise(Count = n()) %>%
+  filter(Count >= 80) %>%
+  pull(hotel_name)
+
+
+freq_reviewed_hotels_data <- my_data %>%
+  filter(hotel_name %in% freq_reviewd_hotels) %>%
+  mutate(rating_category = cut(rating, breaks = c(0, 5.5, 8.5, 10), 
+                               labels = c("Low", "Medium", "High"), 
+                               include.lowest = TRUE))
+```
+
+To understand what is our target group we look at the nationalities of the reviewers.
+Hence, from review data of most frequently reviewed hotels, we extract only those reviews where the reviewer has one of the most occurring nationalities in our dataset. We define most occurring nationalities term as nationalities of people who are the most likely to leave some review, i.e. which have the highest occurrence in our data(top 10 in this case).
+
+To get overall picture of what's happening with reviews of reviewers:
+- who have most popular nationalities, and
+- who comment on most popular hotels:
+
+```{r}
+most_freq_nationalities <- freq_reviewed_hotels_data %>%
+  group_by(nationality) %>%
+  summarise(Count = n()) %>%
+  top_n(10, wt = Count) %>%
+  pull(nationality)
+
+freq_reviewed_hotels_data <- freq_reviewed_hotels_data %>%
+  filter(nationality %in% most_freq_nationalities)
+
+
+ggplot(freq_reviewed_hotels_data, aes(x = nationality, fill = rating_category)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Comparison of Ratings by Nationality",
+       x = "Nationality",
+       y = "Count",
+       fill = 'Rating Category') +
+  scale_fill_brewer(palette = "Set3") +
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5)) 
+```
+This visualization suggests that:
+a) People are more likely to leave a neutral or good review, rather than bad. This is because from all depicted nationalities, bars for medium and high ratings are higher (purple and yellow).
+
+
+b) We see some obvious outstanding pattern in UK. It has highest bars for each rating category. This means that most of the people reviewing are from UK. This insight can be helpful, since it makes UK people target customers, hence hotels can work on understanding some specifics about the needs of people from this group.
+
+
+The data is small and doesn't have lots of predictors for diving deeper into the problems described in b), but we can have some understanding about target customers of popular hotels by looking at the tags of their reviews. This way we will understand what's the main purpose and needs of the stay for this group.
+
+To do that we choose to look at the reviewers data from UK only, who commented on popular hotels. The approach is to compare the tags occurrence with ratings to understand:
+a) whether mentioned factor was a source of satisfaction or dissatisfaction, and
+b) to know this customer segment better:
+  
+```{r}
+freq_reviewed_hotels_data <- freq_reviewed_hotels_data %>%
+  separate_rows(tags, sep = "~")
+
+UK_top_tags <- freq_reviewed_hotels_data %>%
+  filter(nationality == 'United Kingdom') %>%
+  group_by(tags, rating_category) %>%
+  mutate(value = n()) %>%
+  filter(value > 10)
+
+ggplot(UK_top_tags, aes(y = tags, x = rating_category, fill = value)) +
+  geom_tile() +
+  labs(title = "Most Occurring Words by Rating Category for UK",
+       y = "Tag",
+       x = "Rating Category",
+       fill = "Count") +
+  scale_fill_distiller(palette = "Blues", direction = 1) + 
+  geom_text(aes(label = value), color = "black", size = 2.5) +
+  theme_minimal()+
+  theme(axis.text.y = element_text(vjust = 0),
+        panel.grid.major = element_blank())
+  
+```
+This visualization shows that:
+
+1) Reviews of the people who gave high rating to the mentioned hotels, had 'Submitted via mobile'
+tag in their taglist(126 overall). This shows that having mobile booking option is a plus since it is convenient feature 
+for customers. Also, convenient option mobile booking can be one of the reasons of reviewer's high rating.
+
+2) Most of the customers(138) come for leisure. It makes sense to focus on that aspect of the hotel.
+
+3) We have some people who come for one night stay who are quite satisfied(61 medium, 95 high) with this hotels.
+
+4) Compared to other factors, whether or not the customer(s) stayed in standard double room or not doesn't play huge role on high rating, since only 11 high ratings were taged with this tag.
+
+5) Even though, leisure trip, 1 night stay, and option for mobile submission play big role on high rating, they are also main reasons for low rating.
+
+6) When giving high rating, people consider a range of factors, but for low rating it is enough to encounter one or slightly more unsatisfactory things, hence the higher the rating, the less empty tiles on heatmap.
+
+\newpage
+\LARGE \textbf{User review analysis}
+\normalsize
+
+```{r wordcloud-medium}
+hotel_data <- hotel_data_filtered %>%
+  mutate(rating_category = cut(rating,
+                               breaks = c(0, 5.5, 8.5, 10),
+                               labels = c("Low", "Medium", "High"),
+                               include.lowest = TRUE))
+
+generate_wordcloud <- function(data, category) {
+  reviews <- data$review_text[data$rating_category == category]
+
+  if (length(reviews) > 0) {
+    all_reviews <- paste(reviews, collapse=" ")
+
+    corpus <- Corpus(VectorSource(all_reviews))
+
+    corpus <- tm_map(corpus, content_transformer(tolower))
+    corpus <- tm_map(corpus, removePunctuation)
+    corpus <- tm_map(corpus, removeNumbers)
+    corpus <- tm_map(corpus, removeWords, stopwords("en"))
+
+    corpus <- corpus[sapply(corpus, function(x) length(unlist(strsplit(as.character(x), " "))) > 0)]
+
+    if (length(corpus) > 0) {
+      wordcloud(corpus, max.words=100, random.order=FALSE, colors=brewer.pal(8, "Dark2"))
+    } else {
+      cat(paste("No words to display for", category, "category.\n"))
+    }
+  } else {
+    cat(paste("No reviews found for", category, "category.\n"))
+  }
+}
+```
+
+```{r fig.width=10, fig.height=4, message = FALSE}
+generate_wordcloud(hotel_data, "Low")
+```
+The words "room," "hotel," "staff," and "location" predominate in the word cloud for the low rating group, but words like "dirty," "bad," "small," and "noisy" are also heavily featured. We can make implications that visitors frequently complained about the rooms' size, cleanliness, and noise levels, most probably they complained also about staff performance and other important factors of the hotel.Nevertheless, some positive aspects, such as the "good location" and the "friendly" staff, are still evident despite the overall negative reviews, suggesting that there were some positive aspects even among the lower-rated experiences.
+```{r fig.width=10, fig.height=5.5, message = FALSE}
+generate_wordcloud(hotel_data, "Medium")
+```
+Positive descriptors like "clean", "good", "comfortable", and "friendly" have replaced prominent features like "room", "staff", "location", and "hotel" in the word cloud for the medium rating group. This implies that overall visitor satisfaction was high, with praise for cleanliness and comfort. However, negative words such as "bad", "noise", "noisy" are also in the most used ones with less occurrence, indicating that there were also some dissatisfactions. Words like "breakfast" and "bed" may indicate that the guests found these features satisfactory, which helped the establishment earn a mediocre rating.
+
+```{r fig.width=10, fig.height=6, message = FALSE}
+generate_wordcloud(hotel_data, "High")
+```
+Word clouds from the high rating group show even more positivity, with major phrases like "great," "clean," "friendly," and "comfortable." Additionally, the word "breakfast" appears quite large, indicating that many happy guests found this to be a highlight. The use of the terms "perfect" and "excellent" so frequently suggests that guest satisfaction is extremely high. Notably, the word "staff" has additional significance in this cloud, suggesting that receiving high ratings may depend heavily on providing excellent customer service. The favourable characteristics linked to "hotel", "room", and "location" imply that visitors particularly enjoyed these aspects of their highly regarded experiences.
+
+
+```{r, fig.height=5, fig.width=8}
+hotel_data_filtered <- hotel_data_filtered %>%
+  mutate(review_length = nchar(review_text))
+
+rev1 <- ggplot(hotel_data_filtered, aes(x = review_length, y = rating)) +
+  geom_point(alpha = 0.1) +
+  labs(title = "All reviews ",
+       x = "Review Length",
+       y = "Rating") +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+
+hotel_data_filtered <- hotel_data_filtered %>%
+  mutate(review_length = nchar(review_text))
+
+filtered_data <- hotel_data_filtered %>%
+  filter(review_length < 750)
+
+rev2 <- ggplot(filtered_data, aes(x = review_length, y = rating)) +
+  geom_point(alpha = 0.1) +
+  labs(title = "Review Length less than 1000 characters",
+       x = "Review Length",
+       y = "Rating") +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+
+grid.arrange(rev1, rev2, ncol=2, top = textGrob('Rating vs Review Length',gp=gpar(fontsize=18)))
+
+```
+
+The scatter plots represent the correlation between the length of a review and the rating given. The plot including all review lengths is not convenient for detailed analyses as there are some outliers, so we generated another plot, which filters reviews to those with less than 1000 characters. There is a dense clustering of reviews at the top of the rating scale, suggesting that many reviews are positive, regardless of length. There doesn't appear to be a strong, consistent pattern indicating that length correlates with higher or lower ratings. We also notice a vertical line at x = 47 (it stands for the sentence "There are no comments available for this review" containing 47 characters. So it does not mean that for length = 47 there is concentration of more ratings. Yet, it's noticeable that there are very few long reviews with low ratings. It might indicate that customers who spend more time writing a review tend to give higher ratings, or perhaps customers with negative experiences tend to leave shorter reviews.
+
+
+  
+  
